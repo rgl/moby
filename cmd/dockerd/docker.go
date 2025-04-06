@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/pkg/rootless"
+	"github.com/docker/docker/profiles/apparmor"
 	"github.com/moby/buildkit/util/apicaps"
 	"github.com/moby/sys/reexec"
 	"github.com/moby/term"
@@ -101,6 +102,16 @@ func init() {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "docker-default-apparmor-profile" {
+		profile, err := apparmor.GenerateDefault("docker-default", "unconfined")
+		if err != nil {
+			fmt.Printf("Error: Failed to get the profile: %w", err)
+			os.Exit(1)
+		}
+		fmt.Println(profile)
+		return
+	}
+
 	if reexec.Init() {
 		return
 	}

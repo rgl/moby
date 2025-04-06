@@ -4,6 +4,7 @@ package apparmor // import "github.com/docker/docker/profiles/apparmor"
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -54,13 +55,21 @@ func macroExists(m string) bool {
 	return err == nil
 }
 
+func GenerateDefault(name string, daemonProfile string) (string, error) {
+	p := profileData{
+		Name:          name,
+		DaemonProfile: daemonProfile,
+	}
+	var profile bytes.Buffer
+	if err := p.generateDefault(&profile); err != nil {
+		return "", err
+	}
+	return profile.String(), nil
+}
+
 // InstallDefault generates a default profile in a temp directory determined by
 // os.TempDir(), then loads the profile into the kernel using 'apparmor_parser'.
 func InstallDefault(name string) error {
-	p := profileData{
-		Name: name,
-	}
-
 	// Figure out the daemon profile.
 	currentProfile, err := os.ReadFile("/proc/self/attr/current")
 	if err != nil {
@@ -78,7 +87,11 @@ func InstallDefault(name string) error {
 	if daemonProfile == "" {
 		daemonProfile = "unconfined"
 	}
-	p.DaemonProfile = daemonProfile
+
+	profile, err := GenerateDefault(name, daemonProfile)
+	if err != nil {
+		return err
+	}
 
 	// Install to a temporary directory.
 	f, err := os.CreateTemp("", name)
@@ -90,7 +103,8 @@ func InstallDefault(name string) error {
 	defer f.Close()
 	defer os.Remove(profilePath)
 
-	if err := p.generateDefault(f); err != nil {
+	_, err = f.WriteString(profile)
+	if err != nil {
 		return err
 	}
 
